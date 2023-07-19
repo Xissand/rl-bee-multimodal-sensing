@@ -3,6 +3,8 @@ import gymnasium as gym
 from bee import BeeWorld
 import torch.nn as nn
 
+from gymnasium.wrappers.record_video import RecordVideo
+
 from stable_baselines3 import TD3
 from stable_baselines3.common.noise import (
     NormalActionNoise,
@@ -17,15 +19,14 @@ gym.register(
 )
 
 env = gym.make("BeeWorld", render_mode="rgb_array", max_episode_steps=1000)
+env = RecordVideo(env, "videos", episode_trigger=lambda x: x % 25 == 0)
 env.reset()
 
-
-action_noise = NormalActionNoise(
-    mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions)
-)
+n_actions = 2
+action_noise = NormalActionNoise(mean=np.array([0.0, 0.0]), sigma=np.array([0.1, 0.05]))
 
 policy_kwargs = {
-    "net_arch": [100, 100],  # Specify the number of hidden units per layer
+    "net_arch": [400, 300],  # Specify the number of hidden units per layer
     "activation_fn": nn.ReLU,  # Specify the activation function
 }
 
@@ -35,17 +36,13 @@ model = TD3(
     action_noise=action_noise,
     verbose=1,
     policy_kwargs=policy_kwargs,
-    learning_rate=0.01,
+    learning_rate=5e-4,
     tensorboard_log="./logs/",
 )
-model.learn(total_timesteps=1000000, log_interval=10)
+model.learn(total_timesteps=250_000, log_interval=10)
+model.save("test_pre")
 
-vec_env = model.get_env()
-obs = vec_env.reset()
-
-while not dones:
-    action, _states = model.predict(obs)
-    obs, rewards, dones, info = vec_env.step(action)
-
-env.close()
-model.save("test2")
+# env.set_goal_size(1.0)
+# env.reset()
+# model.learn(total_timesteps=100_000, log_interval=10)
+# model.save("test_post")
