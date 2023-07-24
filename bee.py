@@ -112,6 +112,8 @@ class BeeWorld(gym.Env):
 
         self.goal_size = goal_size
 
+        self.n_raycasts = 7  # number of raycasts for walls
+
         self.walls = [
             [(0.0, 0.0), (0.0, self.size)],
             [(0.0, 0.0), (self.size, 0.0)],
@@ -129,7 +131,7 @@ class BeeWorld(gym.Env):
                     high=1,
                     dtype=self.dtype,
                 ),
-                "wall": spaces.Box(0, 1, dtype=self.dtype),
+                "wall": spaces.Box(0, 1, shape=(self.n_raycasts,), dtype=self.dtype),
             }
         )
 
@@ -189,7 +191,7 @@ class BeeWorld(gym.Env):
         self.steps += 1
         return np.array([self.steps / self.max_episode_steps], dtype=self.dtype)
 
-    def _get_visible_wall(self, n_casts=7) -> np.ndarray:
+    def _get_visible_wall(self) -> np.ndarray:
         """Returns the distance to the closest wall in the agents cone of vision
         Uses raycasts equally spaced inside the vision cone
 
@@ -201,7 +203,7 @@ class BeeWorld(gym.Env):
         """
         mins = []
 
-        angles = np.linspace(-self.cone_phi, self.cone_phi, n_casts)
+        angles = np.linspace(-self.cone_phi, self.cone_phi, self.n_raycasts)
 
         for angle in angles:
             ray_point = self._agent_location + [
@@ -217,7 +219,7 @@ class BeeWorld(gym.Env):
             ]
 
             mins.append(min(ds))
-        return np.array([min(mins) / self.size], dtype=self.dtype)
+        return np.array(mins, dtype=self.dtype) / (self.size * np.sqrt(2))
 
     def _get_obs(self) -> dict:
         """
@@ -482,7 +484,7 @@ class BeeWorld(gym.Env):
             assert self.screen is not None
 
             label = self.font.render(
-                f"vision: {self.obs['vision']}; smell: {self.obs['smell'][0]:.4f}; wall: {self.obs['wall'][0]:.4f}",
+                f"vision: {self.obs['vision']}; smell: {self.obs['smell'][0]:.4f}; walls: l-{self.obs['wall'][0]:.4f} m-{self.obs['wall'][(self.n_raycasts+1) // 2]:.4f} r-{self.obs['wall'][-1]:.4f}",
                 1,
                 (0, 0, 0),
             )
